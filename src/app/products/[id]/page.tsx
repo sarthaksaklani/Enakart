@@ -17,8 +17,7 @@ import {
   ChevronRight,
   Check,
   Minus,
-  Plus,
-  Camera
+  Plus
 } from 'lucide-react';
 import { Product } from '@/types';
 import { Button } from '@/components/ui/Button';
@@ -26,7 +25,6 @@ import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { ProductCard } from '@/components/products/ProductCard';
 import { AddLensModal } from '@/components/cart/AddLensModal';
-import { SimpleVirtualTryOn } from '@/components/products/SimpleVirtualTryOn';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -38,7 +36,6 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [showLensModal, setShowLensModal] = useState(false);
-  const [showVirtualTryOn, setShowVirtualTryOn] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
   const { isAuthenticated } = useAuthStore();
 
@@ -400,17 +397,6 @@ export default function ProductDetailPage() {
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-4 pt-4">
-              {/* Virtual Try-On Button - Only for eyeglasses and sunglasses */}
-              {(product.category === 'eyeglasses' || product.category === 'sunglasses') && (
-                <Button
-                  onClick={() => setShowVirtualTryOn(true)}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 text-lg shadow-xl hover:shadow-purple-600/50 transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
-                >
-                  <Camera className="h-6 w-6" />
-                  Try On Virtually
-                </Button>
-              )}
-
               <div className="flex gap-4">
                 <Button
                   onClick={handleAddToCart}
@@ -462,14 +448,6 @@ export default function ProductDetailPage() {
       <AddLensModal
         isOpen={showLensModal}
         onClose={() => setShowLensModal(false)}
-        productName={product.name}
-      />
-
-      {/* Virtual Try-On Modal */}
-      <SimpleVirtualTryOn
-        isOpen={showVirtualTryOn}
-        onClose={() => setShowVirtualTryOn(false)}
-        glassesImage={product.images[selectedImage]}
         productName={product.name}
       />
     </div>

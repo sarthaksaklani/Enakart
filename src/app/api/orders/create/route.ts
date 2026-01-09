@@ -6,7 +6,17 @@ import type { OrderSource } from '@/types';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    db: {
+      schema: 'public',
+    },
+    global: {
+      headers: {
+        'x-application-name': 'optical-store-orders'
+      }
+    }
+  }
 );
 
 export async function POST(req: NextRequest) {
@@ -141,8 +151,26 @@ export async function POST(req: NextRequest) {
       .insert(orderItems);
 
     if (itemsError) {
-      console.error('❌ Order items creation error:', itemsError);
-      // Rollback: Delete the order
+      console.error('❌ Order items creation error:', {
+        message: itemsError.message,
+        details: itemsError.details || itemsError.hint,
+        code: itemsError.code || ''
+      });
+
+      // Check for network errors
+      const errorMessage = itemsError.message?.toLowerCase() || '';
+      if (errorMessage.includes('fetch failed') || errorMessage.includes('timeout') || errorMessage.includes('network')) {
+        console.log('⚠️ Network error detected, but order was created. Attempting cleanup...');
+        // Rollback: Delete the order
+        await supabase.from('orders').delete().eq('id', newOrder.id);
+
+        return NextResponse.json(
+          { success: false, error: 'Network error while creating order. Please check your connection and try again.' },
+          { status: 503 }
+        );
+      }
+
+      // For other errors, also rollback
       await supabase.from('orders').delete().eq('id', newOrder.id);
 
       return NextResponse.json(
@@ -156,18 +184,19 @@ export async function POST(req: NextRequest) {
     // Step 5: Update product stock quantities
     console.log('📉 Updating product stock...');
     for (const item of orderData.items) {
-      const { error: stockError } = await supabase.rpc('decrement_stock', {
-        product_id: item.product_id,
-        quantity: item.quantity
-      });
+      // Get current stock
+      const { data: product } = await supabase
+        .from('products')
+        .select('stock_quantity')
+        .eq('id', item.product_id)
+        .single();
 
-      // If RPC doesn't exist, use manual update
-      if (stockError) {
+      if (product) {
+        // Update with new stock quantity
+        const newStock = product.stock_quantity - item.quantity;
         const { error: updateError } = await supabase
           .from('products')
-          .update({
-            stock_quantity: supabase.raw(`stock_quantity - ${item.quantity}`)
-          })
+          .update({ stock_quantity: newStock })
           .eq('id', item.product_id);
 
         if (updateError) {
