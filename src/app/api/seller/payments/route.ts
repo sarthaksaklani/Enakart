@@ -47,7 +47,43 @@ export async function GET(request: NextRequest) {
 
     console.log(`\n💰 Fetching seller payments (period: ${period})`);
 
-    // Get all payments
+    // Step 1: Get all order_items that belong to this seller's products
+    const { data: sellerOrderItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select('order_id, total_price, unit_price, quantity')
+      .eq('seller_id', userId);
+
+    if (itemsError) {
+      console.error('❌ Error fetching seller order items:', itemsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch seller orders' },
+        { status: 500 }
+      );
+    }
+
+    // Extract unique order IDs
+    const orderIds = [...new Set(sellerOrderItems?.map(item => item.order_id) || [])];
+
+    // If no orders, return empty earnings
+    if (orderIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        earnings: {
+          summary: {
+            totalEarnings: 0,
+            pendingPayouts: 0,
+            totalTransactions: 0,
+            avgTransactionValue: 0
+          },
+          monthlyEarnings: {},
+          paymentMethods: {},
+          recentPayments: [],
+          period
+        }
+      });
+    }
+
+    // Step 2: Get payments for seller's orders only
     let paymentsQuery = supabase
       .from('payments')
       .select(`
@@ -56,9 +92,16 @@ export async function GET(request: NextRequest) {
           id,
           order_number,
           total_amount,
-          created_at
+          created_at,
+          order_items (
+            seller_id,
+            total_price,
+            unit_price,
+            quantity
+          )
         )
       `)
+      .in('order_id', orderIds)
       .eq('status', 'completed')
       .order('created_at', { ascending: false });
 
@@ -87,36 +130,70 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ Found ${payments?.length || 0} completed payments`);
 
-    // Calculate earnings summary
-    const totalEarnings = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
-    const pendingPayouts = 0; // TODO: Calculate from orders that are delivered but payment not yet transferred
+    // Calculate earnings from seller's items only
+    const totalEarnings = payments?.reduce((sum, payment) => {
+      // Calculate seller's portion from this payment's order
+      const sellerAmount = payment.order?.order_items
+        ?.filter((item: any) => item.seller_id === userId)
+        .reduce((itemSum: number, item: any) => {
+          return itemSum + (item.total_price || (item.unit_price * item.quantity));
+        }, 0) || 0;
+      return sum + sellerAmount;
+    }, 0) || 0;
 
-    // Get completed orders for pending payouts calculation
+    // Get completed orders for pending payouts calculation (seller's orders only)
     const { data: completedOrders } = await supabase
       .from('orders')
-      .select('total_amount, payment_status')
+      .select(`
+        id,
+        order_items (
+          seller_id,
+          total_price,
+          unit_price,
+          quantity
+        )
+      `)
+      .in('id', orderIds)
       .eq('status', 'delivered')
       .eq('payment_status', 'completed');
 
-    const completedOrdersTotal = completedOrders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+    // Calculate seller's share from completed orders
+    const completedOrdersTotal = completedOrders?.reduce((sum, order) => {
+      const sellerShare = order.order_items
+        ?.filter((item: any) => item.seller_id === userId)
+        .reduce((itemSum: number, item: any) => {
+          return itemSum + (item.total_price || (item.unit_price * item.quantity));
+        }, 0) || 0;
+      return sum + sellerShare;
+    }, 0) || 0;
+
     const actualPendingPayouts = completedOrdersTotal - totalEarnings;
 
-    // Group payments by month for chart
+    // Group payments by month for chart (seller's portion only)
     const monthlyEarnings: { [key: string]: number } = {};
     payments?.forEach(payment => {
       const month = new Date(payment.created_at).toISOString().slice(0, 7); // YYYY-MM
-      monthlyEarnings[month] = (monthlyEarnings[month] || 0) + (payment.amount || 0);
+      const sellerAmount = payment.order?.order_items
+        ?.filter((item: any) => item.seller_id === userId)
+        .reduce((sum: number, item: any) => sum + (item.total_price || (item.unit_price * item.quantity)), 0) || 0;
+      monthlyEarnings[month] = (monthlyEarnings[month] || 0) + sellerAmount;
     });
 
-    // Payment methods breakdown
+    // Payment methods breakdown (seller's portion only)
     const paymentMethods: { [key: string]: { count: number; amount: number } } = {};
     payments?.forEach(payment => {
       const method = payment.payment_method || 'other';
       if (!paymentMethods[method]) {
         paymentMethods[method] = { count: 0, amount: 0 };
       }
-      paymentMethods[method].count++;
-      paymentMethods[method].amount += payment.amount || 0;
+      const sellerAmount = payment.order?.order_items
+        ?.filter((item: any) => item.seller_id === userId)
+        .reduce((sum: number, item: any) => sum + (item.total_price || (item.unit_price * item.quantity)), 0) || 0;
+
+      if (sellerAmount > 0) {
+        paymentMethods[method].count++;
+        paymentMethods[method].amount += sellerAmount;
+      }
     });
 
     const earnings = {

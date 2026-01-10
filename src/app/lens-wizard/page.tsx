@@ -2,12 +2,12 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { LensWizard } from '@/components/products/LensWizard';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cartStore';
 
-export default function LensWizardPage() {
+function LensWizardPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { items } = useCartStore();
@@ -50,5 +50,20 @@ export default function LensWizardPage() {
       frameProductId={frameProduct.id}
       frameProductName={frameProduct.name}
     />
+  );
+}
+
+export default function LensWizardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    }>
+      <LensWizardPageContent />
+    </Suspense>
   );
 }

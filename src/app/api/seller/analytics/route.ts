@@ -56,7 +56,40 @@ export async function GET(request: NextRequest) {
 
     console.log(`\n📊 Fetching analytics for period: ${period}`);
 
-    // Get orders for the period with order items
+    // Step 1: Get all order_items that belong to this seller's products
+    const { data: sellerOrderItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select('order_id')
+      .eq('seller_id', userId);
+
+    if (itemsError) {
+      console.error('❌ Error fetching seller order items:', itemsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch seller orders' },
+        { status: 500 }
+      );
+    }
+
+    // Extract unique order IDs
+    const orderIds = [...new Set(sellerOrderItems?.map(item => item.order_id) || [])];
+
+    // If no orders, return empty analytics
+    if (orderIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        analytics: {
+          revenue: { total: 0, growth: 0, avgOrderValue: 0 },
+          orders: { total: 0, completed: 0, pending: 0, processing: 0, cancelled: 0 },
+          products: { total: 0, inStock: 0, outOfStock: 0 },
+          salesByCategory: {},
+          topProducts: [],
+          dailySales: {},
+          period
+        }
+      });
+    }
+
+    // Step 2: Get orders for the period (only seller's orders)
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
       .select(`
@@ -67,9 +100,11 @@ export async function GET(request: NextRequest) {
           product_name,
           quantity,
           unit_price,
-          total_price
+          total_price,
+          seller_id
         )
       `)
+      .in('id', orderIds)
       .gte('created_at', startDate.toISOString())
       .order('created_at', { ascending: false });
 
@@ -90,7 +125,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all products for product stats with categories
+    // Filter orders to only include seller's items
+    const filteredOrders = orders?.map(order => ({
+      ...order,
+      order_items: order.order_items?.filter((item: any) => item.seller_id === userId) || []
+    }));
+
+    // Get only seller's products for product stats
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select(`
@@ -101,7 +142,9 @@ export async function GET(request: NextRequest) {
           id,
           name
         )
-      `);
+      `)
+      .eq('seller_id', userId)
+      .eq('is_active', true);
 
     if (productsError) {
       console.error('⚠️ Error fetching products:', productsError);
@@ -118,10 +161,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Calculate analytics
-    const completedOrders = orders?.filter(o => o.status === 'delivered') || [];
-    const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-    const totalOrders = orders?.length || 0;
+    // Calculate analytics from seller's items only
+    const completedOrders = filteredOrders?.filter(o => o.status === 'delivered') || [];
+
+    // Calculate revenue from seller's items only
+    const totalRevenue = completedOrders.reduce((sum, order) => {
+      const orderSellerRevenue = order.order_items?.reduce((itemSum: number, item: any) => {
+        return itemSum + (item.total_price || (item.unit_price * item.quantity));
+      }, 0) || 0;
+      return sum + orderSellerRevenue;
+    }, 0);
+
+    const totalOrders = filteredOrders?.length || 0;
     const avgOrderValue = completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
 
     console.log(`💰 Total Revenue: ₹${totalRevenue}`);
@@ -144,14 +195,34 @@ export async function GET(request: NextRequest) {
         break;
     }
 
+    // Get previous period orders (filtered by seller)
     const { data: prevOrders } = await supabase
       .from('orders')
-      .select('total_amount, status')
+      .select(`
+        id,
+        status,
+        order_items (
+          seller_id,
+          total_price,
+          unit_price,
+          quantity
+        )
+      `)
+      .in('id', orderIds)
       .gte('created_at', prevStartDate.toISOString())
       .lt('created_at', startDate.toISOString());
 
+    // Filter and calculate previous period revenue from seller's items
     const prevCompletedOrders = prevOrders?.filter(o => o.status === 'delivered') || [];
-    const prevRevenue = prevCompletedOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+    const prevRevenue = prevCompletedOrders.reduce((sum, order) => {
+      const orderSellerRevenue = order.order_items
+        ?.filter((item: any) => item.seller_id === userId)
+        .reduce((itemSum: number, item: any) => {
+          return itemSum + (item.total_price || (item.unit_price * item.quantity));
+        }, 0) || 0;
+      return sum + orderSellerRevenue;
+    }, 0);
+
     const revenueGrowth = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0;
 
     // Sales by category
@@ -203,9 +274,9 @@ export async function GET(request: NextRequest) {
       orders: {
         total: totalOrders,
         completed: completedOrders.length,
-        pending: orders?.filter(o => o.status === 'pending').length || 0,
-        processing: orders?.filter(o => o.status === 'processing').length || 0,
-        cancelled: orders?.filter(o => o.status === 'cancelled').length || 0
+        pending: filteredOrders?.filter(o => o.status === 'pending').length || 0,
+        processing: filteredOrders?.filter(o => o.status === 'processing').length || 0,
+        cancelled: filteredOrders?.filter(o => o.status === 'cancelled').length || 0
       },
       products: {
         total: products?.length || 0,

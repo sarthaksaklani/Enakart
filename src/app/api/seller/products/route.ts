@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get seller's products only
+    // Get seller's products only (exclude soft-deleted products)
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select(`
@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('seller_id', userId)
+      .eq('is_active', true)
       .order('created_at', { ascending: false });
 
     if (productsError) {

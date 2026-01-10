@@ -37,6 +37,28 @@ export async function PUT(
       );
     }
 
+    // Verify the order contains seller's products
+    const { data: orderItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select('id')
+      .eq('order_id', id)
+      .eq('seller_id', userId);
+
+    if (itemsError) {
+      console.error('❌ Error checking order items:', itemsError);
+      return NextResponse.json(
+        { error: 'Failed to verify order ownership' },
+        { status: 500 }
+      );
+    }
+
+    if (!orderItems || orderItems.length === 0) {
+      return NextResponse.json(
+        { error: 'Unauthorized - This order does not contain your products' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { status, tracking_number } = body;
 
@@ -124,4 +146,12 @@ export async function PUT(
       { status: 500 }
     );
   }
+}
+
+// PATCH - Same as PUT (for compatibility)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return PUT(request, { params });
 }

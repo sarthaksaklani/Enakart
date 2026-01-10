@@ -159,8 +159,12 @@ export async function POST(request: NextRequest) {
         .eq('order_id', order_id)
         .maybeSingle();
 
-      if (orderItem && orderItem.order && orderItem.order.user_id === userId) {
-        isVerifiedPurchase = true;
+      if (orderItem && orderItem.order) {
+        // orderItem.order is an array due to Supabase join structure
+        const order = Array.isArray(orderItem.order) ? orderItem.order[0] : orderItem.order;
+        if (order && order.user_id === userId) {
+          isVerifiedPurchase = true;
+        }
       }
     }
 

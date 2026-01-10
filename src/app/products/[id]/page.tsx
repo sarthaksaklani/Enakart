@@ -55,7 +55,7 @@ export default function ProductDetailPage() {
 
             // Get related products from same category
             const related = data.products
-              .filter((p: Product) => p.id !== foundProduct.id && p.category_id === foundProduct.category_id)
+              .filter((p: any) => p.id !== foundProduct.id && p.category_id === foundProduct.category_id)
               .slice(0, 4);
             setRelatedProducts(related);
           }

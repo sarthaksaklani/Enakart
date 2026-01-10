@@ -84,10 +84,23 @@ export async function POST(req: NextRequest) {
     // Step 4: Restore product stock
     console.log('📈 Restoring product stock...');
     for (const item of order.order_items) {
+      // First fetch current stock
+      const { data: product, error: fetchError } = await supabase
+        .from('products')
+        .select('stock_quantity')
+        .eq('id', item.product_id)
+        .single();
+
+      if (fetchError) {
+        console.warn(`⚠️ Stock fetch warning for product ${item.product_id}:`, fetchError);
+        continue;
+      }
+
+      // Then update with new quantity
       const { error: stockError } = await supabase
         .from('products')
         .update({
-          stock_quantity: supabase.raw(`stock_quantity + ${item.quantity}`)
+          stock_quantity: (product.stock_quantity || 0) + item.quantity
         })
         .eq('id', item.product_id);
 

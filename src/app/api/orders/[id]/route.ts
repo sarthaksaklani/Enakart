@@ -11,11 +11,11 @@ const supabase = createClient(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = request.headers.get('x-user-id');
-    const orderId = params.id;
+    const { id: orderId } = await params;
 
     if (!userId) {
       return NextResponse.json(

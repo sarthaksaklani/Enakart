@@ -51,6 +51,7 @@ export default function EditProductPage() {
     description: '',
     price: 0,
     stock_quantity: 0,
+    low_stock_threshold: 10,
     brand: '',
     category_id: '',
     gender: 'unisex',
@@ -113,6 +114,7 @@ export default function EditProductPage() {
         description: prod.description || '',
         price: prod.price || 0,
         stock_quantity: prod.stock_quantity || 0,
+        low_stock_threshold: prod.low_stock_threshold || 10,
         brand: prod.brand || '',
         category_id: prod.category_id || '',
         gender: prod.gender || 'unisex',
@@ -482,7 +484,7 @@ export default function EditProductPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Price (₹) *
@@ -511,6 +513,21 @@ export default function EditProductPage() {
                     min="0"
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Low Stock Alert At
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.low_stock_threshold}
+                    onChange={(e) => setFormData({ ...formData, low_stock_threshold: Number(e.target.value) })}
+                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    placeholder="10"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Alert when stock falls below this number</p>
                 </div>
               </div>
 

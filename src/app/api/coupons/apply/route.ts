@@ -59,15 +59,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Increment coupon usage count
-    const { error: updateError } = await supabase
+    // First fetch the current usage count
+    const { data: currentCoupon, error: fetchError } = await supabase
       .from('coupons')
-      .update({
-        usage_count: supabase.raw('usage_count + 1')
-      })
-      .eq('id', coupon_id);
+      .select('usage_count')
+      .eq('id', coupon_id)
+      .single();
 
-    if (updateError) {
-      console.warn('⚠️ Failed to update coupon count:', updateError);
+    if (fetchError) {
+      console.warn('⚠️ Failed to fetch coupon for count update:', fetchError);
+    } else {
+      // Then increment it
+      const { error: updateError } = await supabase
+        .from('coupons')
+        .update({
+          usage_count: (currentCoupon.usage_count || 0) + 1
+        })
+        .eq('id', coupon_id);
+
+      if (updateError) {
+        console.warn('⚠️ Failed to update coupon count:', updateError);
+      }
     }
 
     console.log(`✅ Coupon usage recorded\n`);

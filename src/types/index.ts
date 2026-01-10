@@ -223,6 +223,13 @@ export interface ProductFilters {
   gift?: string;
   eco?: string;
   price?: string;
+  // Additional filter fields
+  replacement_type?: string;
+  lens_color?: string;
+  lens_purpose?: string;
+  discount_range?: string;
+  pack_size?: string;
+  [key: string]: any; // Allow any additional fields
 }
 
 // Pagination

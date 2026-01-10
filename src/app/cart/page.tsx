@@ -119,8 +119,9 @@ export default function CartPage() {
                               }
                             } catch (e) {
                               // If parsing fails, use as-is if it's a URL
-                              if (item.product.images.startsWith('http')) {
-                                imageUrl = item.product.images;
+                              const imagesStr = item.product.images as string;
+                              if (imagesStr.startsWith('http')) {
+                                imageUrl = imagesStr;
                               }
                             }
                           }

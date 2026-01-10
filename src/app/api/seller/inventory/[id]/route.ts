@@ -47,10 +47,10 @@ export async function PUT(
       );
     }
 
-    // Get current stock
+    // Get current stock and verify ownership
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('stock_quantity')
+      .select('stock_quantity, seller_id')
       .eq('id', id)
       .single();
 
@@ -58,6 +58,14 @@ export async function PUT(
       return NextResponse.json(
         { error: 'Product not found' },
         { status: 404 }
+      );
+    }
+
+    // Verify product belongs to seller
+    if (product.seller_id !== userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - You can only update your own products' },
+        { status: 403 }
       );
     }
 

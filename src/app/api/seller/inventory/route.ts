@@ -35,19 +35,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all products with inventory
+    // Get only seller's products with inventory
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select(`
         id,
         name,
         stock_quantity,
+        low_stock_threshold,
         price,
         images,
         categories (
           name
         )
       `)
+      .eq('seller_id', userId)
+      .eq('is_active', true)
       .order('stock_quantity', { ascending: true });
 
     if (productsError) {
@@ -58,20 +61,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calculate inventory stats
+    // Calculate inventory stats using per-product thresholds
     const stats = {
       totalProducts: products?.length || 0,
-      inStock: products?.filter(p => p.stock_quantity > lowStockThreshold).length || 0,
-      lowStock: products?.filter(p => p.stock_quantity > 0 && p.stock_quantity <= lowStockThreshold).length || 0,
+      inStock: products?.filter(p => p.stock_quantity > (p.low_stock_threshold || lowStockThreshold)).length || 0,
+      lowStock: products?.filter(p => p.stock_quantity > 0 && p.stock_quantity <= (p.low_stock_threshold || lowStockThreshold)).length || 0,
       outOfStock: products?.filter(p => p.stock_quantity === 0).length || 0,
       totalValue: products?.reduce((sum, p) => sum + (p.stock_quantity * p.price), 0) || 0
     };
 
-    // Categorize products
+    // Categorize products using per-product thresholds
     const inventory = {
-      lowStock: products?.filter(p => p.stock_quantity > 0 && p.stock_quantity <= lowStockThreshold) || [],
+      lowStock: products?.filter(p => p.stock_quantity > 0 && p.stock_quantity <= (p.low_stock_threshold || lowStockThreshold)) || [],
       outOfStock: products?.filter(p => p.stock_quantity === 0) || [],
-      inStock: products?.filter(p => p.stock_quantity > lowStockThreshold) || []
+      inStock: products?.filter(p => p.stock_quantity > (p.low_stock_threshold || lowStockThreshold)) || []
     };
 
     return NextResponse.json({

@@ -11,6 +11,7 @@ interface Product {
   id: string;
   name: string;
   stock_quantity: number;
+  low_stock_threshold?: number;
   price: number;
   images: string[] | string;
   categories?: {
@@ -261,10 +262,11 @@ export default function InventoryPage() {
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
                   {products.map((product) => {
+                    const threshold = product.low_stock_threshold || inventoryData.threshold;
                     const stockStatus =
                       product.stock_quantity === 0
                         ? 'out'
-                        : product.stock_quantity <= inventoryData.threshold
+                        : product.stock_quantity <= threshold
                         ? 'low'
                         : 'good';
 

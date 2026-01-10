@@ -36,7 +36,41 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build query
+    // First, get all order_items that belong to this seller's products
+    const { data: sellerOrderItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select('order_id')
+      .eq('seller_id', userId);
+
+    if (itemsError) {
+      console.error('Error fetching seller order items:', itemsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch orders' },
+        { status: 500 }
+      );
+    }
+
+    // Extract unique order IDs
+    const orderIds = [...new Set(sellerOrderItems?.map(item => item.order_id) || [])];
+
+    // If no orders found, return empty
+    if (orderIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        orders: [],
+        stats: {
+          total: 0,
+          pending: 0,
+          processing: 0,
+          shipped: 0,
+          delivered: 0,
+          cancelled: 0,
+          totalRevenue: 0
+        }
+      });
+    }
+
+    // Build query for orders
     let query = supabase
       .from('orders')
       .select(`
@@ -49,9 +83,11 @@ export async function GET(request: NextRequest) {
           id,
           quantity,
           price,
-          product_snapshot
+          product_snapshot,
+          seller_id
         )
       `)
+      .in('id', orderIds)
       .order('created_at', { ascending: false });
 
     // Apply filters
@@ -72,20 +108,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calculate summary stats
+    // Filter order_items to show only seller's items
+    const filteredOrders = orders?.map(order => ({
+      ...order,
+      order_items: order.order_items?.filter((item: any) => item.seller_id === userId) || []
+    }));
+
+    // Calculate summary stats and revenue from seller's items only
+    const sellerRevenue = filteredOrders?.reduce((sum, order) => {
+      const orderSellerTotal = order.order_items?.reduce((itemSum: number, item: any) => {
+        return itemSum + (item.price * item.quantity);
+      }, 0) || 0;
+      return sum + orderSellerTotal;
+    }, 0) || 0;
+
     const stats = {
-      total: orders?.length || 0,
-      pending: orders?.filter(o => o.status === 'pending').length || 0,
-      processing: orders?.filter(o => o.status === 'processing').length || 0,
-      shipped: orders?.filter(o => o.status === 'shipped').length || 0,
-      delivered: orders?.filter(o => o.status === 'delivered').length || 0,
-      cancelled: orders?.filter(o => o.status === 'cancelled').length || 0,
-      totalRevenue: orders?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0
+      total: filteredOrders?.length || 0,
+      pending: filteredOrders?.filter(o => o.status === 'pending').length || 0,
+      processing: filteredOrders?.filter(o => o.status === 'processing').length || 0,
+      shipped: filteredOrders?.filter(o => o.status === 'shipped').length || 0,
+      delivered: filteredOrders?.filter(o => o.status === 'delivered').length || 0,
+      cancelled: filteredOrders?.filter(o => o.status === 'cancelled').length || 0,
+      totalRevenue: sellerRevenue
     };
 
     return NextResponse.json({
       success: true,
-      orders: orders || [],
+      orders: filteredOrders || [],
       stats
     });
 

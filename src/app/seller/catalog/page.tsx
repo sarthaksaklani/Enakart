@@ -209,8 +209,9 @@ export default function CatalogManagementPage() {
                               }
                             } catch (e) {
                               // If parsing fails, use as-is if it's a URL
-                              if (product.images.startsWith('http')) {
-                                imageUrl = product.images;
+                              const imagesStr = product.images as string;
+                              if (imagesStr.startsWith('http')) {
+                                imageUrl = imagesStr;
                               }
                             }
                           }

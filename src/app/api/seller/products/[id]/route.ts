@@ -36,7 +36,7 @@ export async function GET(
       );
     }
 
-    // Get product
+    // Get product and verify ownership
     const { data: product, error: productError } = await supabase
       .from('products')
       .select(`
@@ -55,6 +55,14 @@ export async function GET(
       return NextResponse.json(
         { error: 'Product not found' },
         { status: 404 }
+      );
+    }
+
+    // Verify product belongs to seller
+    if (product.seller_id !== userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - You can only view your own products' },
+        { status: 403 }
       );
     }
 
@@ -104,8 +112,29 @@ export async function PUT(
 
     const body = await request.json();
 
+    // Verify product belongs to seller
+    const { data: existingProduct, error: productError } = await supabase
+      .from('products')
+      .select('seller_id')
+      .eq('id', id)
+      .single();
+
+    if (productError || !existingProduct) {
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404 }
+      );
+    }
+
+    if (existingProduct.seller_id !== userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - You can only update your own products' },
+        { status: 403 }
+      );
+    }
+
     // Remove fields that shouldn't be updated directly
-    const { id: _, created_at, ...updateData } = body;
+    const { id: _, created_at, seller_id, ...updateData } = body;
 
     // Update product
     const { data: product, error: updateError } = await supabase
@@ -140,7 +169,7 @@ export async function PUT(
   }
 }
 
-// DELETE product
+// DELETE product (soft delete - set is_active = false)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -170,14 +199,38 @@ export async function DELETE(
       );
     }
 
-    // Delete product
-    const { error: deleteError } = await supabase
+    // Verify product belongs to seller
+    const { data: product, error: productError } = await supabase
       .from('products')
-      .delete()
+      .select('seller_id')
+      .eq('id', id)
+      .single();
+
+    if (productError || !product) {
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404 }
+      );
+    }
+
+    if (product.seller_id !== userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - You can only delete your own products' },
+        { status: 403 }
+      );
+    }
+
+    // Soft delete: Set is_active to false instead of deleting
+    const { error: updateError } = await supabase
+      .from('products')
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id);
 
-    if (deleteError) {
-      console.error('Error deleting product:', deleteError);
+    if (updateError) {
+      console.error('Error deleting product:', updateError);
       return NextResponse.json(
         { error: 'Failed to delete product' },
         { status: 500 }

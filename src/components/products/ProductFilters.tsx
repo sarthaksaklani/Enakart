@@ -966,8 +966,8 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                       type="radio"
                       name="replacement_type"
                       value={type.value}
-                      checked={filters.replacement_type === type.value}
-                      onChange={(e) => onFilterChange({ ...filters, replacement_type: e.target.value })}
+                      checked={(filters as any).replacement_type === type.value}
+                      onChange={(e) => onFilterChange({ ...filters, replacement_type: e.target.value } as any)}
                       className="mr-3 w-4 h-4 border-zinc-600 bg-zinc-800 text-red-600 focus:ring-red-600"
                     />
                     <span className="text-sm text-gray-300">{type.label}</span>
@@ -996,8 +996,8 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                       type="radio"
                       name="lens_color"
                       value={color.value}
-                      checked={filters.lens_color === color.value}
-                      onChange={(e) => onFilterChange({ ...filters, lens_color: e.target.value })}
+                      checked={(filters as any).lens_color === color.value}
+                      onChange={(e) => onFilterChange({ ...filters, lens_color: e.target.value } as any)}
                       className="mr-3 w-4 h-4 border-zinc-600 bg-zinc-800 text-red-600 focus:ring-red-600"
                     />
                     <span className="text-sm text-gray-300">{color.label}</span>
@@ -1089,7 +1089,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                         const currentFeatures = filters.lens_features || [];
                         const newFeatures = e.target.checked
                           ? [...currentFeatures, feature.value]
-                          : currentFeatures.filter(f => f !== feature.value);
+                          : currentFeatures.filter((f: string) => f !== feature.value);
                         onFilterChange({ ...filters, lens_features: newFeatures.length > 0 ? newFeatures : undefined });
                       }}
                       className="mr-3 w-4 h-4 border-zinc-600 bg-zinc-800 rounded focus:ring-red-600 focus:ring-offset-zinc-900 text-red-600"

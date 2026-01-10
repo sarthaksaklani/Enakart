@@ -878,7 +878,7 @@ export const SellerRegistrationForm: React.FC<SellerRegistrationFormProps> = ({ 
                 <div>
                   <p className="text-gray-400">GST Number</p>
                   <p className="text-white font-medium flex items-center gap-2">
-                    {registrationData.gst_number}
+                    {(registrationData as any).gst_number}
                     <CheckCircle className="w-4 h-4 text-green-500" />
                   </p>
                 </div>
@@ -904,37 +904,37 @@ export const SellerRegistrationForm: React.FC<SellerRegistrationFormProps> = ({ 
             <div className="space-y-4 text-sm">
               <div>
                 <p className="text-gray-400">Business Name</p>
-                <p className="text-white font-medium">{registrationData.business_name}</p>
+                <p className="text-white font-medium">{(registrationData as any).business_name}</p>
               </div>
               <div>
                 <p className="text-gray-400">Business Address</p>
-                <p className="text-white font-medium">{registrationData.business_address}</p>
+                <p className="text-white font-medium">{(registrationData as any).business_address}</p>
               </div>
-              {registrationData.business_license && (
+              {(registrationData as any).business_license && (
                 <div>
                   <p className="text-gray-400">Business License</p>
-                  <p className="text-white font-medium">{registrationData.business_license}</p>
+                  <p className="text-white font-medium">{(registrationData as any).business_license}</p>
                 </div>
               )}
-              {registrationData.account_holder_name && (
+              {(registrationData as any).account_holder_name && (
                 <>
                   <div className="border-t border-gray-700 pt-4 mt-4">
                     <p className="text-gray-400 mb-2">Bank Account Details</p>
                   </div>
                   <div>
                     <p className="text-gray-400">Account Holder</p>
-                    <p className="text-white font-medium">{registrationData.account_holder_name}</p>
+                    <p className="text-white font-medium">{(registrationData as any).account_holder_name}</p>
                   </div>
-                  {registrationData.bank_account_number && (
+                  {(registrationData as any).bank_account_number && (
                     <div>
                       <p className="text-gray-400">Account Number</p>
-                      <p className="text-white font-medium">{registrationData.bank_account_number}</p>
+                      <p className="text-white font-medium">{(registrationData as any).bank_account_number}</p>
                     </div>
                   )}
-                  {registrationData.ifsc_code && (
+                  {(registrationData as any).ifsc_code && (
                     <div>
                       <p className="text-gray-400">IFSC Code</p>
-                      <p className="text-white font-medium">{registrationData.ifsc_code}</p>
+                      <p className="text-white font-medium">{(registrationData as any).ifsc_code}</p>
                     </div>
                   )}
                 </>
